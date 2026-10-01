@@ -1,0 +1,30 @@
+.workspace-name {
+  margin-top: 28px;
+  max-width: 500px;
+}
+
+.workspace-name label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.workspace-name input {
+  width: 100%;
+  padding: 11px 12px;
+  font-size: 15px;
+}
+
+.workspace-name span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.workspace-name + .welcome-actions {
+  margin-top: 16px;
+}
