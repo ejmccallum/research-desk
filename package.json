@@ -14,16 +14,22 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit",
     "package": "npm run build && electron-builder",
-    "package:dir": "npm run build && electron-builder --dir"
+    "package:dir": "npm run build && electron-builder --dir",
+    "pretest": "tsc -p tsconfig.main.json"
   },
   "dependencies": {
+    "@napi-rs/canvas": "1.0.10",
+    "@tesseract.js-data/eng": "1.0.0",
     "jose": "^6.2.12",
     "jszip": "latest",
     "lucide-react": "latest",
     "mammoth": "latest",
+    "pdfjs-dist": "6.3.289",
     "react": "latest",
     "react-dom": "latest",
-    "sql.js": "latest"
+    "react-markdown": "10.1.0",
+    "sql.js": "latest",
+    "tesseract.js": "7.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "latest",
@@ -54,7 +60,8 @@
       "dist/**/*",
       "dist-electron/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "resources/thesis/**/*"
     ],
     "asar": true,
     "win": {
@@ -82,6 +89,13 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "asarUnpack": [
+      "node_modules/@napi-rs/**/*",
+      "node_modules/tesseract.js/**/*",
+      "node_modules/tesseract.js-core/**/*",
+      "node_modules/@tesseract.js-data/**/*",
+      "node_modules/pdfjs-dist/**/*"
+    ]
   }
 }

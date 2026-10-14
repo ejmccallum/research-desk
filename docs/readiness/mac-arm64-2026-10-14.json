@@ -1,0 +1,95 @@
+{
+  "tests": 146,
+  "typecheck": "passed",
+  "build": "passed",
+  "runs": [
+    {
+      "platform": "darwin",
+      "arch": "arm64",
+      "version": "0.2.0",
+      "packaged": true,
+      "phase": "create",
+      "checks": [
+        "bundled SQLite, DOCX, PDF rendering, image rendering, offline OCR, templates, approved Word export",
+        "packaged renderer, preload, artwork; HTTP/WebSocket blocked"
+      ]
+    },
+    {
+      "platform": "darwin",
+      "arch": "arm64",
+      "version": "0.2.0",
+      "packaged": true,
+      "phase": "recover",
+      "checks": [
+        "forced-process termination: assessment paused with findings; revision/chat interrupted; partial reply retained; multi-page extraction resumed from checkpoint",
+        "packaged renderer, preload, artwork; HTTP/WebSocket blocked"
+      ]
+    },
+    {
+      "platform": "darwin",
+      "arch": "arm64",
+      "version": "0.2.0",
+      "packaged": true,
+      "phase": "restore",
+      "checks": [
+        "offline restoration, record/source identity, approval validity, re-export",
+        "packaged renderer, preload, artwork; HTTP/WebSocket blocked"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "Research Desk-0.2.0.dmg",
+      "bytes": 204577489,
+      "sha256": "41a335ff9b4f51cf2f3c56f56068e0da00995ed9fcaa61af25dd7abca164f4c1"
+    },
+    {
+      "file": "Research Desk-0.2.0-arm64.dmg",
+      "bytes": 200710015,
+      "sha256": "0ac45ca353af96c999fddabe8d20988f75a43dc08c0179bb850e5cc9c531a03c"
+    }
+  ],
+  "windowsExecution": "pending CI",
+  "intelExecution": "unverified",
+  "installedFromDmg": [
+    {
+      "platform": "darwin",
+      "arch": "arm64",
+      "version": "0.2.0",
+      "packaged": true,
+      "phase": "create",
+      "checks": [
+        "bundled SQLite, DOCX, PDF rendering, image rendering, offline OCR, templates, approved Word export",
+        "packaged renderer, preload, artwork; HTTP/WebSocket blocked"
+      ]
+    },
+    {
+      "platform": "darwin",
+      "arch": "arm64",
+      "version": "0.2.0",
+      "packaged": true,
+      "phase": "recover",
+      "checks": [
+        "forced-process termination: assessment paused with findings; revision/chat interrupted; partial reply retained; multi-page extraction resumed from checkpoint",
+        "packaged renderer, preload, artwork; HTTP/WebSocket blocked"
+      ]
+    },
+    {
+      "platform": "darwin",
+      "arch": "arm64",
+      "version": "0.2.0",
+      "packaged": true,
+      "phase": "restore",
+      "checks": [
+        "offline restoration, record/source identity, approval validity, re-export",
+        "packaged renderer, preload, artwork; HTTP/WebSocket blocked"
+      ]
+    }
+  ],
+  "manualUI": [
+    "DMG copied into clean temporary installation",
+    "Fresh profile displayed welcome and study artwork from app.asar",
+    "Restored synthetic workspace: 5/5 prepared files, missing provider credentials, interrupted partial reply",
+    "Revision queue: approved/exported proposal retained, request interrupted, explicit retry offered"
+  ]
+}

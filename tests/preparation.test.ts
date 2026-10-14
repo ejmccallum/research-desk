@@ -1,0 +1,35 @@
+// @vitest-environment node
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import { pathToFileURL } from 'node:url';import JSZip from 'jszip';
+import { WorkspaceStore } from '../src/main/workspace';import { LibraryIndexer } from '../src/main/indexer';
+const roots:string[]=[];const indexers:LibraryIndexer[]=[];
+const temp=()=>{const root=fs.mkdtempSync(path.join(os.tmpdir(),'preparation-'));roots.push(root);return root;};
+afterEach(()=>{for(const indexer of indexers.splice(0))indexer.stop();vi.restoreAllMocks();for(const root of roots.splice(0))fs.rmSync(root,{recursive:true,force:true});});
+const worker=()=>pathToFileURL(path.resolve('dist-electron/main/extraction-worker.js'));
+const createIndexer=(store:WorkspaceStore,notify:any=()=>{},file=worker())=>{const indexer=new LibraryIndexer(store,temp(),notify,file);indexers.push(indexer);return indexer;};
+async function imported(){const store=new WorkspaceStore();await store.create(temp(),'Prepared study');const file=path.join(temp(),'history.txt');fs.writeFileSync(file,'The archive opened in 1847.');const item=(await store.importFiles([file],'copy')).imported[0];return {store,item};}
+const ready=(store:WorkspaceStore)=>vi.waitFor(()=>expect(store.coverage().pending).toBe(0),{timeout:10000});
+describe('explicit persistent workspace preparation',()=>{
+  it('does nothing until enabled, prepares once, reuses on restart, and processes only imports and edits',async()=>{
+    const {store,item}=await imported(),indexer=createIndexer(store),start=vi.spyOn(store,'startIndex');indexer.schedule();await new Promise(r=>setTimeout(r,180));expect(start).not.toHaveBeenCalled();expect(indexer.status().phase).toBe('off');
+    indexer.start();await ready(store);expect(start).toHaveBeenCalledTimes(1);expect(indexer.status().phase).toBe('ready');
+    store.addMessage('chat','user','Continue research');const root=store.root!;store.close();await store.open(root);store.loadChat('chat');await new Promise(r=>setTimeout(r,250));expect(start).toHaveBeenCalledTimes(1);expect(store.preparation()).toEqual({enabled:true,paused:false});
+    const file=path.join(temp(),'budget.md');fs.writeFileSync(file,'The archive budget was 500 dollars.');const added=(await store.importFiles([file],'copy')).imported[0];await ready(store);expect(start).toHaveBeenCalledTimes(2);expect(start.mock.calls[1][0]).toBe(added.id);
+    store.saveText(item.id,'The corrected date is 1848.');await ready(store);expect(start).toHaveBeenCalledTimes(3);expect(store.searchLibrary('1848')[0].itemId).toBe(item.id);expect(store.searchLibrary('1847')).toHaveLength(0);
+    await store.create(temp(),'Unconfigured');expect(indexer.status().enabled).toBe(false);
+  });
+  it('cancels with page checkpoints intact, persists pause, and resumes without blocking chat loading',async()=>{
+    const {store,item}=await imported();const script=path.join(temp(),'slow.mjs');fs.writeFileSync(script,`import{parentPort,workerData as job}from'node:worker_threads';import fs from'node:fs';import crypto from'node:crypto';const bytes=fs.readFileSync(job.file),stat=fs.statSync(job.file);parentPort.postMessage({type:'start',checksum:crypto.createHash('sha256').update(bytes).digest('hex'),size:stat.size,mtime:stat.mtimeMs});parentPort.postMessage({type:'page',value:job.cachedPages[0]||{page:1,text:'Persisted page checkpoint',method:'text'}});setTimeout(()=>parentPort.postMessage({type:'complete'}),600);`);
+    const indexer=createIndexer(store,()=>{},pathToFileURL(script));indexer.start();await vi.waitFor(()=>expect(store.indexedPages(item.id)).toHaveLength(1));indexer.pause();expect(store.indexRecord(item.id)?.state).toBe('processing');expect(indexer.status().paused).toBe(true);
+    const root=store.root!;store.close();await store.open(root);expect(store.preparation().paused).toBe(true);store.addMessage('chat','user','A fresh chat during processing');expect(store.loadChat('chat').messages).toHaveLength(1);indexer.start();expect(store.loadChat('chat').messages).toHaveLength(1);await ready(store);expect(store.indexedPages(item.id)[0].text).toBe('Persisted page checkpoint');expect(store.indexedPages(item.id)).toHaveLength(1);
+  });
+  it('archives preparation state and cached text, identifies unavailable files and retries without erasing pages',async()=>{
+    const {store,item}=await imported(),indexer=createIndexer(store);indexer.start();await ready(store);store.finishIndex(item.id,'Provider-independent extraction failure');const checkpoint=store.indexedPages(item.id);indexer.pause();store.retryIndex(item.id);expect(store.indexedPages(item.id)).toEqual(checkpoint);indexer.start();await ready(store);
+    const unknown=path.join(temp(),'unsupported.bin');fs.writeFileSync(unknown,'Unknown format');await store.importFiles([unknown],'copy');await ready(store);expect(indexer.status().unavailable?.some(e=>e.state==='unsupported')).toBe(true);
+    const archive=path.join(temp(),'saved.researchdesk');await store.exportTo(archive);const copy=new WorkspaceStore();await copy.importFrom(archive,temp());expect(copy.preparation()).toEqual(store.preparation());expect(copy.searchLibrary('1847')[0].text).toContain('1847');const copyIndexer=createIndexer(copy),start=vi.spyOn(copy,'startIndex');copyIndexer.schedule();await new Promise(r=>setTimeout(r,200));expect(start).not.toHaveBeenCalled();
+    fs.unlinkSync(copy.pathFor(item.id));expect(copyIndexer.status().unavailable?.find(e=>e.itemId===item.id)?.state).toBe('missing');
+  });
+  it('prepares Word documents with paragraph references in the same persistent index',async()=>{
+    const store=new WorkspaceStore();await store.create(temp(),'Word');const zip=new JSZip();zip.file('[Content_Types].xml','<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');zip.file('_rels/.rels','<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');zip.file('word/document.xml','<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Archive funding was approved in 1847.</w:t></w:r></w:p><w:p><w:r><w:t>Contradictory evidence needs review.</w:t></w:r></w:p></w:body></w:document>');const file=path.join(temp(),'research.docx');fs.writeFileSync(file,await zip.generateAsync({type:'nodebuffer'}));await store.importFiles([file],'copy');createIndexer(store).start();await ready(store);expect(store.searchLibrary('funding')[0]).toMatchObject({locator:'Paragraph 1',method:'text'});
+  });
+});

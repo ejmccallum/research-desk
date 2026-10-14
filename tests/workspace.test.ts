@@ -25,6 +25,19 @@ describe('workspace persistence',()=>{
     expect(state.evidence[0].sourceId).toBe(state.items[0].id);expect(state.evidence[0].locator).toBe('p. 12');expect(state.checks.some((x:{title:string})=>x.title.includes('locator'))).toBe(false);
   });
 
+  it('removes library entries durably while retaining original files, copies and evidence',async()=>{
+    const root=temp(),sources=temp(),source=path.join(sources,'remove.txt');fs.writeFileSync(source,'Retain this source');
+    const store=new WorkspaceStore();await store.create(root,'Removal');const result=await store.importFiles([source],'copy');const item=result.imported[0];const copy=store.pathFor(item.id);
+    store.createEvidence({sourceId:item.id,title:'Retained quotation',locator:'line 1',quotation:'Retain this source'});
+    store.recordDriveImport('remote-source',item.id);
+    const state=store.removeItem(item.id);expect(state.items).toHaveLength(0);expect(state.evidence).toHaveLength(1);expect(state.checks.some(x=>x.title==='Evidence source removed from library')).toBe(true);
+    expect(fs.existsSync(copy)).toBe(true);expect(fs.existsSync(source)).toBe(true);
+    store.close();await store.open(root);expect(store.getState().items).toHaveLength(0);expect(store.hasDriveImport('remote-source')).toBe(true);
+  });
+  it('removes a linked file without deleting the external original',async()=>{
+    const root=temp(),source=path.join(temp(),'linked.txt');fs.writeFileSync(source,'External original');const store=new WorkspaceStore();await store.create(root,'Links');const result=await store.importFiles([source],'link');store.removeItem(result.imported[0].id);expect(fs.readFileSync(source,'utf8')).toBe('External original');
+  });
+
   it('exports and imports a versioned integrity-checked archive without settings',async()=>{
     const root=temp(),sourceRoot=temp(),source=path.join(sourceRoot,'note.txt'),archive=path.join(temp(),'backup.researchdesk'),restored=temp();fs.writeFileSync(source,'Portable research');
     const store=new WorkspaceStore();await store.create(root,'Portable test');await store.importFiles([source],'copy');await store.exportTo(archive);

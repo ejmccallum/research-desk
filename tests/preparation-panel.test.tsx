@@ -1,0 +1,12 @@
+import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';import { afterEach, expect, it, vi } from 'vitest';
+import { PreparationPanel } from '../src/renderer/PreparationPanel';import type { PreparationStatus } from '../src/shared/types';
+afterEach(()=>{cleanup();vi.restoreAllMocks();});
+it('starts preparation explicitly, shows progress, cancels, resumes, and identifies unavailable files',async()=>{
+  const base:PreparationStatus={workspaceId:'w',enabled:false,paused:false,phase:'off',total:2,ready:0,pending:2,failed:0,unsupported:0,missing:0,failures:[]};
+  let callback!:(status:PreparationStatus)=>void;const started={...base,enabled:true,phase:'preparing' as const,current:'Scanned source',processedPages:2,totalPages:10};
+  const api={getPreparation:async()=>base,onPreparationProgress:(fn:any)=>{callback=fn;return()=>{};},prepareWorkspace:vi.fn(async()=>started),cancelPreparation:vi.fn(async()=>({...started,paused:true,phase:'paused' as const})),resumePreparation:vi.fn(async()=>started),retryPreparation:vi.fn(async()=>started)};window.researchDesk=api as any;
+  render(<PreparationPanel workspaceId="w"/>);await screen.findByRole('button',{name:'Prepare workspace documents'});expect(api.prepareWorkspace).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Prepare workspace documents'}));await screen.findByText('Scanned source · page 2/10');expect(api.prepareWorkspace).toHaveBeenCalledWith('w');
+  fireEvent.click(screen.getByRole('button',{name:'Cancel preparation'}));await screen.findByRole('button',{name:'Resume preparation'});expect(api.cancelPreparation).toHaveBeenCalledWith('w');fireEvent.click(screen.getByRole('button',{name:'Resume preparation'}));await waitFor(()=>expect(api.resumePreparation).toHaveBeenCalledWith('w'));
+  const {act}=await import('@testing-library/react');await act(async()=>callback({...started,pending:0,failed:1,phase:'problems',unavailable:[{itemId:'bad',title:'Encrypted source',state:'failed',error:'Password required'}]}));expect(screen.getByText('Encrypted source · failed: Password required')).toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Retry this file'}));await waitFor(()=>expect(api.retryPreparation).toHaveBeenCalledWith('w','bad'));
+  await act(async()=>callback({...base,workspaceId:'other'}));expect(screen.queryByRole('button',{name:'Prepare workspace documents'})).toBeNull();
+});
