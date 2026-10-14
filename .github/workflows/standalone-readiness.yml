@@ -1,4 +1,4 @@
-name: Standalone readiness
+name: Mac standalone readiness
 on:
   workflow_dispatch:
   push:
@@ -28,85 +28,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: mac-results-and-exchange
+          name: mac-readiness-results
           path: ${{ runner.temp }}/readiness
       - uses: actions/upload-artifact@v4
         with:
           name: mac-installers
           path: release/*.dmg
-  windows:
-    needs: mac
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npx electron-builder --publish never --win --x64
-      - name: Install to a clean temporary directory
-        shell: pwsh
-        run: |
-          $installer = Get-ChildItem release -Filter '*Setup*.exe' | Select-Object -First 1
-          if (!$installer) { throw 'NSIS installer not found' }
-          $target = Join-Path $env:RUNNER_TEMP 'ResearchDeskInstalled'
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$target") -Wait -PassThru
-          if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
-          if (!(Test-Path "$target\Research Desk.exe")) { throw 'Installed executable missing' }
-      - run: node scripts/readiness.mjs '${{ runner.temp }}/ResearchDeskInstalled/Research Desk.exe' local '${{ runner.temp }}/windows-local'
-      - uses: actions/download-artifact@v4
-        with:
-          name: mac-results-and-exchange
-          path: ${{ runner.temp }}/mac-input
-      - name: Prepare clean migration destination
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory "${{ runner.temp }}/exchange"
-          Copy-Item "${{ runner.temp }}/mac-input/exchange.researchdesk","${{ runner.temp }}/mac-input/baseline.json","${{ runner.temp }}/mac-input/readiness-marker" "${{ runner.temp }}/exchange"
-      - run: node scripts/readiness.mjs '${{ runner.temp }}/ResearchDeskInstalled/Research Desk.exe' exchange '${{ runner.temp }}/exchange'
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: windows-results
-          path: ${{ runner.temp }}/windows-local
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: windows-exchange
-          path: ${{ runner.temp }}/exchange
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: release/*.exe
-  mac-return:
-    needs: windows
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npx electron-builder --publish never --mac --arm64 --x64 --dir
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - uses: actions/download-artifact@v4
-        with:
-          name: windows-exchange
-          path: ${{ runner.temp }}/windows-input
-      - run: |
-          mkdir '${{ runner.temp }}/return'
-          cp '${{ runner.temp }}/windows-input/exchange.researchdesk' '${{ runner.temp }}/windows-input/baseline.json' '${{ runner.temp }}/windows-input/readiness-marker' '${{ runner.temp }}/return/'
-          if [ "$(uname -m)" = arm64 ]; then app='release/mac-arm64/Research Desk.app/Contents/MacOS/Research Desk'; else app='release/mac/Research Desk.app/Contents/MacOS/Research Desk'; fi
-          node scripts/readiness.mjs "$app" exchange '${{ runner.temp }}/return'
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: mac-return-results
-          path: ${{ runner.temp }}/return
